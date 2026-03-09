@@ -6,10 +6,12 @@ pipeline {
     }
 
     environment {
-        PATH = "${JAVA_HOME}/bin:${PATH}"
+        GITHUB_CREDS = credentials('github-packages-cred')
+        PATH = "${JAVA_HOME}\\bin;${PATH}"
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 checkout scm
@@ -18,22 +20,14 @@ pipeline {
 
         stage('Build & Deploy') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'github-packages-cred',
-                    usernameVariable: 'GH_USER',
-                    passwordVariable: 'GH_TOKEN'
-                )]) {
-                    configFileProvider([configFile(fileId: 'maven-github-settings', variable: 'MAVEN_SETTINGS')]) {
-                        sh '''
-                            set +x
+                configFileProvider([configFile(fileId: 'maven-github-settings', variable: 'MAVEN_SETTINGS')]) {
+                    bat '''
+                        set GH_USER=%GITHUB_CREDS_USR%
+                        set GH_TOKEN=%GITHUB_CREDS_PSW%
 
-                            MVN_UNIX_PATH="$(cygpath -u "$MAVEN_HOME")/bin/mvn"
-                            SETTINGS_UNIX_PATH="$(cygpath -u "$MAVEN_SETTINGS")"
-
-                            "$MVN_UNIX_PATH" -s "$SETTINGS_UNIX_PATH" -B clean package
-                            "$MVN_UNIX_PATH" -s "$SETTINGS_UNIX_PATH" -B deploy
-                        '''
-                    }
+                        "%MAVEN_HOME%\\bin\\mvn.cmd" -s "%MAVEN_SETTINGS%" -B clean package
+                        "%MAVEN_HOME%\\bin\\mvn.cmd" -s "%MAVEN_SETTINGS%" -B deploy
+                    '''
                 }
             }
         }
@@ -41,10 +35,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Build and deployment to GitHub Packages completed successfully.'
+            echo "✅ Build and deployment to GitHub Packages completed successfully."
         }
         failure {
-            echo '❌ Pipeline failed. Check the console output for details.'
+            echo "❌ Pipeline failed. Check the console output for details."
         }
     }
 }
